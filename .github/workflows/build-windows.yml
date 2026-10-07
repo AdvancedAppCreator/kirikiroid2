@@ -1,0 +1,56 @@
+name: Build Windows
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VCPKG_BINARY_SOURCES: "clear"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\.act\vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@a102174a2b586eec2ea151a69e6fd14404a8ce7c # v1.13.0
+        with:
+          arch: amd64
+
+      - name: Install winflexbison
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/lexxmark/winflexbison/releases/download/v2.5.25/win_flex_bison-2.5.25.zip" -OutFile "$env:RUNNER_TEMP\winflexbison.zip"
+          $actual = (Get-FileHash "$env:RUNNER_TEMP\winflexbison.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne "8d324b62be33604b2c45ad1dd34ab93d722534448f55a16ca7292de32b6ac135") { throw "winflexbison checksum mismatch" }
+          Expand-Archive "$env:RUNNER_TEMP\winflexbison.zip" "$env:RUNNER_TEMP\winflexbison"
+          "$env:RUNNER_TEMP\winflexbison" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+          git -C "$env:VCPKG_ROOT" checkout --detach aa40adda5352e87655b8583cfb2451d5e9e276fd
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
+        with:
+          key: ${{ github.job }}-${{ runner.os }}
+
+      - name: Build Windows
+        run: |
+          cmake --preset="Windows Release Config" -DENABLE_TESTS=OFF -DBUILD_TOOLS=OFF
+          cmake --build --preset="Windows Release Build"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-binaries
+          path: out/windows/release/bin/krkr2/**

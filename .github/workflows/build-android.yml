@@ -1,0 +1,103 @@
+name: Build Android
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ANDROID_NDK_VERSION: "28.0.13004108"
+  VCPKG_BINARY_SOURCES: "clear"
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/.act/vcpkg
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/.act/android-sdk
+      ANDROID_NDK: ${{ github.workspace }}/.act/android-ndk
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          lfs: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison nasm python3 yasm
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          java-version: "17"
+          distribution: zulu
+
+      - name: Cache Android command-line tools
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: commandlinetools-cache
+        with:
+          path: ${{ github.workspace }}/.act/commandlinetools-linux-10406996_latest.zip
+          key: commandlinetools-linux-10406996
+
+      - name: Download Android command-line tools
+        if: steps.commandlinetools-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "${{ github.workspace }}/.act"
+          wget -O "${{ github.workspace }}/.act/commandlinetools-linux-10406996_latest.zip" \
+            https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          echo "87b485c7283cba69e41c10f05bf832d2fd691552  ${{ github.workspace }}/.act/commandlinetools-linux-10406996_latest.zip" | sha1sum --check
+
+      - name: Install Android SDK and NDK
+        run: |
+          unzip -q "${{ github.workspace }}/.act/commandlinetools-linux-10406996_latest.zip" -d "${{ github.workspace }}/.act"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          mv "${{ github.workspace }}/.act/cmdline-tools/"* "${ANDROID_SDK_ROOT}/cmdline-tools/latest"
+          yes | "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" --licenses
+          "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${ANDROID_SDK_ROOT}" \
+            "platform-tools" "platforms;android-34" "build-tools;34.0.0" \
+            "cmake;3.31.1" "ndk;${ANDROID_NDK_VERSION}"
+          ln -s "${ANDROID_SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}" "${ANDROID_NDK}"
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+
+      - name: Setup vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          git -C "${VCPKG_ROOT}" checkout --detach aa40adda5352e87655b8583cfb2451d5e9e276fd
+          "${VCPKG_ROOT}/bootstrap-vcpkg.sh"
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
+        with:
+          key: ${{ github.job }}-${{ runner.os }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@41ad77ca97e46ee2e825d5e6b9a95d8169fcc44c # v4.4.2
+
+      - name: Build unsigned development APKs
+        run: ./platforms/android/gradlew -p ./platforms/android --console=plain --no-daemon assembleDebug
+
+      - name: Create compliance artifacts
+        run: |
+          mkdir -p dist
+          mapfile -t builds < <(find out/android/cmake-build/Debug -type f -name CMakeCache.txt -printf '%h\n')
+          python scripts/generate-android-compliance-bundle.py \
+            --output dist/android-ffmpeg-source-relink.zip \
+            --build-dir "${builds[0]}" --build-dir "${builds[1]}"
+          mapfile -t roots < <(find out/android/cmake-build/Debug -type d -name vcpkg_installed -print)
+          python scripts/collect-third-party-licenses.py \
+            --output dist/THIRD_PARTY_LICENSES.txt "${roots[@]}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-debug-apks
+          path: |
+            platforms/android/out/android/app/outputs/apk/debug/*.apk
+            COPYING
+            LICENSE
+            LICENSES/
+            THIRD_PARTY_NOTICES.md
+            dist/THIRD_PARTY_LICENSES.txt
+            dist/android-ffmpeg-source-relink.zip

@@ -1,0 +1,53 @@
+name: Build Linux
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VCPKG_BINARY_SOURCES: "clear"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/.act/vcpkg
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf autoconf-archive automake binutils bison gcc g++ libcurl4-gnutls-dev libfontconfig1-dev libgl2ps-dev libglew-dev libglu1-mesa-dev libgtk-3-dev libltdl-dev libpng-dev libsqlite3-dev libssl-dev libtool libx11-dev libxext-dev libxft-dev libxi-dev libxmu-dev libxxf86vm-dev libzip-dev nasm ninja-build perl pkg-config python3 yasm
+
+      - name: Install CMake
+        uses: lukka/get-cmake@2ecc21724e5215b0e567bc399a2602d2ecb48541 # v4.1.1
+        with:
+          cmakeVersion: 3.31.1
+
+      - name: Setup vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          git -C "${VCPKG_ROOT}" checkout --detach aa40adda5352e87655b8583cfb2451d5e9e276fd
+          "${VCPKG_ROOT}/bootstrap-vcpkg.sh"
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@63069e3931dedbf3b63792097479563182fe70d1 # v1.2.18
+        with:
+          key: ${{ github.job }}-${{ runner.os }}
+
+      - name: Build Linux
+        run: |
+          cmake --preset="Linux Release Config" -DENABLE_TESTS=OFF -DBUILD_TOOLS=OFF
+          cmake --build --preset="Linux Release Build"
+          cp "$(find out/linux/release/ -name libfmod.so -print -quit)" out/linux/release/bin/krkr2
+          cp "$(find out/linux/release/ -name libfmodL.so -print -quit)" out/linux/release/bin/krkr2
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-binaries
+          path: out/linux/release/bin/krkr2/**

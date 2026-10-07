@@ -1,0 +1,33 @@
+KrKr2 distribution terms
+========================
+
+The AdvancedAppCreator KrKr2 application is distributed as a combined work
+under the GNU General Public License version 2 or, at your option, any later
+version (GPL-2.0-or-later). The complete license text is in
+LICENSES/GPL-2.0-or-later.txt.
+
+This GPL election covers the fork-owned modifications and the application as a
+combined work. It does not erase copyright notices or replace the compatible
+terms that apply to individual third-party components:
+
+1. The KiriKiri/Kirikiri Z-derived runtime retains the permissive terms and
+   notices reproduced in LICENSE.
+2. cpp/core/movie/ffmpeg/Geometry.h and RenderFormats.h are
+   GPL-2.0-or-later.
+3. cpp/core/movie/ffmpeg/RenderFlags.cpp is LGPL-2.1-or-later.
+4. Other embedded code, assets, generated dependency packages, and Java
+   archives retain their own terms. See LICENSE, LICENSES/, source headers,
+   vcpkg-installed copyright files, and THIRD_PARTY_NOTICES.md.
+
+Distributors of application binaries must provide the complete corresponding
+source, build scripts, license text, and notices required by the GPL.
+LGPL-covered components additionally require the applicable source and
+relinking or replacement rights. The currently verified Android FFmpeg builds
+are statically linked; see THIRD_PARTY_NOTICES.md for the target-by-target
+evidence and corresponding relinking-material requirement.
+
+The direct UnRAR dependency is removed. Restricted 7-Zip RAR decoder sources
+are excluded from the application build and installed dependency payload. RAR
+extraction uses libarchive.
+
+This guide is informational and does not replace any license text.
