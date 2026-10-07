@@ -76,7 +76,9 @@ jobs:
         uses: gradle/actions/setup-gradle@41ad77ca97e46ee2e825d5e6b9a95d8169fcc44c # v4.4.2
 
       - name: Build unsigned development APKs
-        run: ./platforms/android/gradlew -p ./platforms/android --console=plain --no-daemon assembleDebug
+        run: |
+          chmod +x ./platforms/android/gradlew
+          ./platforms/android/gradlew -p ./platforms/android --console=plain --no-daemon assembleDebug
 
       - name: Create compliance artifacts
         run: |
