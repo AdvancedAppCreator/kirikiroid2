@@ -38,14 +38,17 @@ def cache_value(cache: Path, name: str) -> str:
 
 
 def git_clean(root: Path) -> bool:
-    result = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=all"],
+    unstaged = subprocess.run(
+        ["git", "diff", "--quiet", "--ignore-submodules", "--"],
         cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
+        check=False,
     )
-    return not result.stdout.strip()
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet", "--ignore-submodules", "--"],
+        cwd=root,
+        check=False,
+    )
+    return unstaged.returncode == 0 and staged.returncode == 0
 
 
 def find_link_output(build: Path) -> str:
@@ -142,7 +145,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     try:
         if not args.allow_dirty and not git_clean(root):
-            fail("release compliance bundles require a clean Git worktree")
+            fail("release compliance bundles require unchanged tracked source files")
 
         builds = [path.resolve() for path in args.build_dir]
         caches = [build / "CMakeCache.txt" for build in builds]
