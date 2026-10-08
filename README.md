@@ -26,8 +26,21 @@ evidence.
 This fork changes the application identity, Android launch integration,
 translation/OCR features, platform/build support, plugins, and publication
 configuration. Report fork issues only at
-<https://github.com/AdvancedAppCreator/krkr2/issues>. See [SECURITY.md](SECURITY.md)
+<https://github.com/AdvancedAppCreator/kirikiroid2/issues>. See [SECURITY.md](SECURITY.md)
 for private vulnerability reports.
+
+## Adult Game Manager integration
+
+[Adult Game Manager](https://github.com/AdvancedAppCreator/adult-game-manager)
+can track and launch supported KiriKiri games through this community fork while
+keeping its own local library and catalog state.
+
+- [Unified launcher setup](https://advancedappcreator.github.io/adult-game-manager-releases/launcher-setup/)
+- [Latest AGM release](https://github.com/AdvancedAppCreator/adult-game-manager/releases/latest)
+- [Latest Kirikiroid2 Community Fork release](https://github.com/AdvancedAppCreator/kirikiroid2/releases/latest)
+
+AGM and this fork are separate applications with separate releases, licenses,
+privacy disclosures, and support boundaries.
 
 ## Supported targets
 
